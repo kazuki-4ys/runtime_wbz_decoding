@@ -1,0 +1,8 @@
+*.elf
+*.rel
+.vscode
+build.*
+*.bat
+porting
+*.bin
+ssydtools/
