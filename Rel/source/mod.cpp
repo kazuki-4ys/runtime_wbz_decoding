@@ -21,7 +21,7 @@ void *decodeSzsHeap;
 void *lzmaHeap;
 unsigned int globalSrcSize;
 
-const char *AUTO_ADD_NOT_FOUND_MSG = "sd:/rk_dumper/auto-add.arc is not exist.\n\nPlease run RevoKart Dumper first.\nhttps://github.com/kazuki-4ys/RevoKart_Dumper/releases";
+const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc is not exist.\n";
 
 void* my_lzma_malloc(void *p, unsigned int size){
     return my_malloc_from_heap(size, lzmaHeap);
@@ -35,7 +35,9 @@ unsigned char isFileValid(const char *path){
     DVDFileInfo fi;
     int result = DVDOpen(path, &fi);
     if(!result)return 0;
-    if(!fi.length)return 0;
+    unsigned int length = fi.length;
+    DVDClose(&fi);
+    if(!length)return 0;
     return 1;
 }
 
@@ -98,6 +100,7 @@ void main()
         unsigned int col = 0xE0E0E0FF;
         unsigned int col2 = 0x003000FF;
         OSFatal(&col, &col2, AUTO_ADD_NOT_FOUND_MSG);
+        return;
     }
 
     // Replace required function
