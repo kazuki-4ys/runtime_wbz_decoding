@@ -50,6 +50,18 @@ void u8_archive_init_auto_add(u8_archive *src, const char *path, void *heap){
     Egg__Heap__Free(tmpFullPath, src->heap);*/
 }
 
+unsigned char u8_archive_is_this_node_empty(u8_archive *src, unsigned int targetNodeIndex){
+    u8_node *firstNode = (void*)(src->nodeAndStringTable);
+    u8_node *targetNode = firstNode + targetNodeIndex;
+    unsigned int allNodeCount = firstNode->fileDataLength;
+    if((targetNode->fileNameOffset & 0x01000000) != 0x01000000){
+        //this is a file.
+        return 0;
+    }
+    if(targetNode->fileDataLength <= targetNodeIndex + 1)return 1;
+    return 0;
+}
+
 void u8_archive_deinit_auto_add(u8_archive *src){
     if(!src->nodeAndStringTable)return;
     Egg__Heap__Free(src->nodeAndStringTable, src->heap);
@@ -69,7 +81,11 @@ void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, u8_node_str_
         //ここから合っているかは不明
         while(parentNodeIndex < allNodeCount){
             parentNode = firstNode + parentNodeIndex;
-            if((parentNode->fileNameOffset & 0x01000000) == 0x01000000)break;
+            //if((parentNode->fileNameOffset & 0x01000000) == 0x01000000 && (!u8_archive_is_this_node_empty(src, parentNodeIndex)))break;
+            if((parentNode->fileNameOffset & 0x01000000) == 0x01000000){
+                if(targetNodeIndex < parentNode->fileDataLength)break;
+                parentNodeIndex = parentNode->fileDataLength - 1;
+            }
             parentNodeIndex++;
         }
         if(parentNodeIndex >= allNodeCount){
