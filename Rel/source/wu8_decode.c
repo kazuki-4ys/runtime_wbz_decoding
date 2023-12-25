@@ -15,7 +15,7 @@ void *my_malloc_from_heap(unsigned int length, void *heap){
 }
 
 char *addDotSlashIfNotExist(char *srcPath, void *heap){
-    if(memcmp("./", srcPath, 2)){
+    if((strlen(srcPath) < 2) || memcmp("./", srcPath, 2)){
         char *dest = my_malloc_from_heap(strlen(srcPath) + 3, heap);
         memcpy(dest + 2, srcPath, strlen(srcPath) + 1);
         memcpy(dest, "./", 2);
@@ -56,15 +56,26 @@ void u8_archive_deinit_auto_add(u8_archive *src){
     DVDClose(&(src->fi));
 }
 
-void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, char *destPath){
+void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, u8_node_str_array *pathInfo){
     unsigned int parentNodeIndex = 0;
     u8_node *firstNode = (void*)(src->nodeAndStringTable);
     u8_node *targetNode = firstNode + targetNodeIndex;
     u8_node *parentNode = NULL;
     unsigned int allNodeCount = firstNode->fileDataLength;
+    if(pathInfo->count >= U8_NODE_STR_MAX_COUNT)return;
     if((targetNode->fileNameOffset & 0x01000000) == 0x01000000){
         parentNodeIndex = targetNode->fileDataOffset;
         parentNode = firstNode + parentNodeIndex;
+        //ここから合っているかは不明
+        while(parentNodeIndex < allNodeCount){
+            parentNode = firstNode + parentNodeIndex;
+            if((parentNode->fileNameOffset & 0x01000000) == 0x01000000)break;
+            parentNodeIndex++;
+        }
+        if(parentNodeIndex >= allNodeCount){
+            parentNodeIndex = allNodeCount - 1;
+            parentNode = firstNode + parentNodeIndex;
+        }
     }else{
         parentNodeIndex = targetNodeIndex - 1;
         while(1){
@@ -76,57 +87,64 @@ void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, char *destPa
             parentNodeIndex--;
         }
     }
-    char *path = src->nodeAndStringTable + (targetNode->fileNameOffset & 0xFFFFFF) + allNodeCount * U8_NODE_SIZE;
-    *destPath = '/';
-    unsigned int pathLen = strlen(path);
-    if((targetNode->fileNameOffset & 0x01000000) == 0x01000000){
-        memcpy(destPath - pathLen, path, pathLen);
-    }else{
-        memcpy(destPath - pathLen + 1, path, pathLen);
-    }
-    if(!parentNodeIndex)return;
-    if((targetNode->fileNameOffset & 0x01000000) == 0x01000000){
-        getFullPath_rec(src, parentNodeIndex, destPath - pathLen - 1);
-    }else{
-        getFullPath_rec(src, parentNodeIndex, destPath - pathLen);
-    }
+    pathInfo->str[pathInfo->count] = src->nodeAndStringTable + (targetNode->fileNameOffset & 0xFFFFFF) + allNodeCount * U8_NODE_SIZE;
+    pathInfo->count++;
+    if(parentNodeIndex > 0)getFullPath_rec(src, parentNodeIndex, pathInfo);
+    return;
 }
 
-char* u8_get_full_path(u8_archive *src, unsigned int targetNodeIndex, char *pathBuffer){
-    memset(pathBuffer, 0, 1024);
-    if(!targetNodeIndex)return pathBuffer;
-    getFullPath_rec(src, targetNodeIndex, pathBuffer + 1022);
-    char *fullPath = pathBuffer + 1022;
-    while(*(fullPath) != '\0'){
-        fullPath--;
+char* u8_get_full_path(u8_archive *src, unsigned int targetNodeIndex){
+    u8_node_str_array *pathInfo;
+    pathInfo = my_malloc_from_heap(sizeof(u8_node_str_array), src->heap);
+    pathInfo->count = 0;
+    getFullPath_rec(src, targetNodeIndex, pathInfo);
+    if(pathInfo->count == 0){
+        Egg__Heap__Free(pathInfo, src->heap);
+        return NULL;
     }
-    fullPath++;
-    return fullPath;
+    unsigned int slashCount = pathInfo->count - 1;
+    unsigned int pathBufLength = slashCount + 1;
+    for(unsigned int i = 0;i < pathInfo->count;i++){
+        pathBufLength += strlen(pathInfo->str[i]);
+    }
+    char *dest = my_malloc_from_heap(pathBufLength, src->heap);
+    unsigned int curDestIndex = 0;
+    for(unsigned int i = 0;i < pathInfo->count;i++){
+        unsigned int curStrLen = strlen(pathInfo->str[(pathInfo->count - 1) - i]);
+        memcpy(dest + curDestIndex, pathInfo->str[(pathInfo->count - 1) - i], curStrLen);
+        curDestIndex += curStrLen;
+        if(i + 1 == pathInfo->count){
+            *(dest + curDestIndex) = 0;
+        }else{
+            *(dest + curDestIndex) = '/';
+            curDestIndex++;
+        }
+    }
+    Egg__Heap__Free(pathInfo, src->heap);
+    return dest;
 }
 
 unsigned char u8_archive_is_file_exist_auto_add(u8_archive *src, const char *path){
     unsigned char result = 0;
-    char *tmpFullPath = my_malloc_from_heap(1024, src->heap);
     u8_node *firstNode = (void*)(src->nodeAndStringTable);
     u8_node *targetNode = NULL;
     char *fullPath = NULL;
     unsigned int allNodeCount = firstNode->fileDataLength;
     for(unsigned int i = 0;i < allNodeCount;i++){
-        fullPath = u8_get_full_path(src, i, tmpFullPath);
-        if(!strcmp(fullPath, path)){
+        fullPath = u8_get_full_path(src, i);
+        if(fullPath && (!strcmp(fullPath, path))){
             result = 1;
-            break;
         }
+        if(fullPath)Egg__Heap__Free(fullPath, src->heap);
+        if(result)return 1;
     }
-    Egg__Heap__Free(tmpFullPath, src->heap);
-    return result;
+    return 0;
 }
 
 void u8_archive_get_file_auto_add(u8_archive *src, const char *path, u8_archive_auto_add_get_file_dest *dest){
     dest->data = NULL;
     dest->size = 0;
     if(!src->nodeAndStringTable)return;
-    char *tmpFullPath = my_malloc_from_heap(1024, src->heap);
     u8_node *firstNode = (void*)(src->nodeAndStringTable);
     u8_node *targetNode = NULL;
     char *fullPath = NULL;
@@ -135,9 +153,12 @@ void u8_archive_get_file_auto_add(u8_archive *src, const char *path, u8_archive_
         if(i == 0)continue;
         targetNode = firstNode + i;
         if((targetNode->fileNameOffset & 0x01000000) == 0x01000000)continue;
-        fullPath = u8_get_full_path(src, i, tmpFullPath);
-        if(strcmp(fullPath, path))continue;
-        Egg__Heap__Free(tmpFullPath, src->heap);
+        fullPath = u8_get_full_path(src, i);
+        if((!fullPath) || strcmp(fullPath, path)){
+            if(fullPath)Egg__Heap__Free(fullPath, src->heap);
+            continue;
+        }
+        Egg__Heap__Free(fullPath, src->heap);
         dest->data = my_malloc_from_heap(targetNode->fileDataLength, src->heap);
         dest->heap = src->heap;
         dest->size = targetNode->fileDataLength;
@@ -145,7 +166,6 @@ void u8_archive_get_file_auto_add(u8_archive *src, const char *path, u8_archive_
         DVDReadPrio(&(src->fi), dest->data, dest->size, offset, 2);
         return;
     }
-    Egg__Heap__Free(tmpFullPath, src->heap);
 }
 
 unsigned char getBasickeyBySize(unsigned int srcSize){
@@ -157,7 +177,7 @@ unsigned char getBasickeyBySize(unsigned int srcSize){
 void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
     //https://wiki.tockdom.com/wiki/WU8_(File_Format)#Algorithm
     u8_archive src_wu8, auto_add;
-    char *tmpFullPath = my_malloc_from_heap(1024, heap);
+    src_wu8.heap = heap;
     u8_archive_init_auto_add(&auto_add, "/Race/Course/auto-add.arc", heap);
     //Algorithm 6
     unsigned int tmp = U8_MAGIC;
@@ -180,14 +200,18 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
         if(((firstNode + i)->fileNameOffset & 0x01000000) == 0x01000000)continue;
         unsigned int fileSize = (firstNode + i)->fileDataLength;
         unsigned char *file = src + (firstNode + i)->fileDataOffset;
-        fullPath = u8_get_full_path(&src_wu8, i, tmpFullPath);
+        fullPath = u8_get_full_path(&src_wu8, i);
         dotSlashFullPath = addDotSlashIfNotExist(fullPath, heap);
         if(!dotSlashFullPath){
             dotSlashFullPath = fullPath;
             freeDotSlashFullPath = 0;
         }
         //OSReport("%s\n", fullPath);
-        if(!u8_archive_is_file_exist_auto_add(&auto_add, dotSlashFullPath))continue;
+        if(!u8_archive_is_file_exist_auto_add(&auto_add, dotSlashFullPath)){
+            if(freeDotSlashFullPath)Egg__Heap__Free(dotSlashFullPath, heap);
+            Egg__Heap__Free(fullPath, src_wu8.heap);
+            continue;
+        }
         u8_archive_get_file_auto_add(&auto_add, dotSlashFullPath, &origFile);
         // Algorithm 3
         //https://github.com/Wiimm/wiimms-szs-tools/blob/336da838ce43edae40dd708dd465f1f43a2c312d/project/src/lib-szs.c#L1795
@@ -197,6 +221,7 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
         }
         Egg__Heap__Free(origFile.data, origFile.heap);
         if(freeDotSlashFullPath)Egg__Heap__Free(dotSlashFullPath, heap);
+        Egg__Heap__Free(fullPath, src_wu8.heap);
     }
     // Algorithm 4
     for(unsigned int i = 1;i < allNodeCount;i++){
@@ -206,7 +231,7 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
         if(((firstNode + i)->fileNameOffset & 0x01000000) == 0x01000000)continue;
         unsigned int fileSize = (firstNode + i)->fileDataLength;
         unsigned char *file = src + (firstNode + i)->fileDataOffset;
-        fullPath = u8_get_full_path(&src_wu8, i, tmpFullPath);
+        fullPath = u8_get_full_path(&src_wu8, i);
         dotSlashFullPath = addDotSlashIfNotExist(fullPath, heap);
         if(!dotSlashFullPath){
             dotSlashFullPath = fullPath;
@@ -214,9 +239,9 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
         }
         unsigned char u8_archive_is_file_exist_auto_add_result = u8_archive_is_file_exist_auto_add(&auto_add, dotSlashFullPath);
         if(freeDotSlashFullPath)Egg__Heap__Free(dotSlashFullPath, heap);
+        Egg__Heap__Free(fullPath, src_wu8.heap);
         if(u8_archive_is_file_exist_auto_add_result)continue;
         for(unsigned int j = 0;j < fileSize;j++)*(file + j) = summaryKey ^ (*(file + j));
     }
     u8_archive_deinit_auto_add(&auto_add);
-    Egg__Heap__Free(tmpFullPath, heap);
 }

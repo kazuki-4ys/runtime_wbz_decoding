@@ -5,6 +5,7 @@
 
 #define U8_MAGIC 0x55AA382D
 #define U8_NODE_SIZE 0xC
+#define U8_NODE_STR_MAX_COUNT 64
 
 typedef struct{
     unsigned char *data;
@@ -32,10 +33,15 @@ typedef struct{
     void *heap;
 }u8_archive;
 
+typedef struct{
+    unsigned int count;
+    char* str[U8_NODE_STR_MAX_COUNT];
+}u8_node_str_array;
+
 void u8_archive_init_auto_add(u8_archive *src, const char *path, void *heap);
 void u8_archive_deinit_auto_add(u8_archive *src);
-void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, char *destPath);
-char* u8_get_full_path(u8_archive *src, unsigned int targetNodeIndex, char *pathBuffer);
+void getFullPath_rec(u8_archive *src, unsigned int targetNodeIndex, u8_node_str_array *pathInfo);
+char* u8_get_full_path(u8_archive *src, unsigned int targetNodeIndex);
 void u8_archive_get_file_auto_add(u8_archive *src, const char *path, u8_archive_auto_add_get_file_dest *dest);
 void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap);
 
