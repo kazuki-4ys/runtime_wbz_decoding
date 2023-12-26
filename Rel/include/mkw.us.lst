@@ -32,3 +32,4 @@
 80218b8c:EGG__Decomp__DecodeSZS
 80515094:System__DvdArchive__decompress
 801a2530:OSReport
+8053c61c:System__CourseCache__load

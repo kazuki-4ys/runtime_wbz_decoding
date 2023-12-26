@@ -1,6 +1,8 @@
 #include <ppc-asm.h>
 
 .global dvd_archive_decompress_hook_asm
+.global dvd_archive_decompress_hook_asm2
+.global dvd_archive_decompress_hook_asm2_end
 .global EGG__Decomp__DecodeSZS_Original
 
 .macro pushStack
@@ -32,6 +34,21 @@ ori r12, r12, System__DvdArchive__decompress@l
 addi r12, r12, 0x2C
 mtlr r12
 blr
+
+dvd_archive_decompress_hook_asm2:
+pushStack
+bl dvd_archive_decompress_hook2
+stw r3, -4 (sp)
+popStack
+lwz r12, -0x84 (sp)
+cmpwi r12, 0
+beq skip_blr
+mr r3, r12
+blr
+skip_blr:
+stwu sp, -0x10 (sp)
+dvd_archive_decompress_hook_asm2_end:
+.long 0
 
 EGG__Decomp__DecodeSZS_Original:
 stwu sp, -0x10 (sp)

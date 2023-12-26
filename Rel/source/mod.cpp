@@ -3,7 +3,10 @@
 
 extern "C" {
     void dvd_archive_decompress_hook_asm(void);
+    void dvd_archive_decompress_hook_asm2(void);
+    void dvd_archive_decompress_hook_asm2_end(void);
     void System__DvdArchive__decompress(void *self, const char* path, void* archiveHeap, unsigned int _unused);
+    void System__CourseCache__load(void *self, unsigned int courseId);
     unsigned int EGG__Decomp__DecodeSZS(unsigned char *src, unsigned char *dest);
     unsigned int EGG__Decomp__DecodeSZS_Original(unsigned char *src, unsigned char *dest);
     unsigned int EGG__Decomp__getExpandSize(unsigned char *src);
@@ -19,9 +22,13 @@ namespace mod {
 
 void *decodeSzsHeap;
 void *lzmaHeap;
-unsigned int globalSrcSize;
 
 const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc is not exist.\n";
+
+void System__CourseCache__load_Replace(void *self, unsigned int courseId){
+    //disable course cache
+    return;
+}
 
 void* my_lzma_malloc(void *p, unsigned int size){
     return my_malloc_from_heap(size, lzmaHeap);
@@ -70,19 +77,22 @@ unsigned int DvdArchiveDecompressHook(unsigned char *fileStart, void *heap, unsi
     //Assume that this is wbz or wlz.
     unsigned int result;
     memcpy(&result, fileStart + 0xC, 4);
-    globalSrcSize = sourceSize;
+    *((unsigned int*)((void*)(fileStart + 0x8))) = sourceSize;
     return result;
 }
-}
 
-unsigned int EGG__Decomp__DecodeSZS_Replace(unsigned char *src, unsigned char *dest){
+unsigned int dvd_archive_decompress_hook2(unsigned char *src, unsigned char *dest){
+    //replace here.
+    //https://github.com/riidefi/mkw/blob/40c587abb0bb386532aaf038e290524c86ab4c1f/source/egg/core/eggDecomp.cpp#L35
     if(!memcmp(src, "Yaz0", 4)){
-        return EGG__Decomp__DecodeSZS_Original(src, dest);
+        return 0;
     }
-    if(!memcmp(src, "WBZa", 4))decompressBz2(src + 0x10, globalSrcSize - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
-    if(!memcmp(src, "WLZa", 4))decompressLzma(src + 0x10, globalSrcSize - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
+    if(!memcmp(src, "WBZa", 4))decompressBz2(src + 0x10, *((unsigned int*)((void*)(src + 0x8))) - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
+    if(!memcmp(src, "WLZa", 4))decompressLzma(src + 0x10, *((unsigned int*)((void*)(src + 0x8))) - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
     if(!memcmp(dest, "WU8a", 4))decode_wu8(dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
     return *((unsigned int*)((void*)(src + 0xC)));
+}
+
 }
 
 unsigned int EGG__Decomp__getExpandSize_Replace(unsigned char *src){
@@ -104,8 +114,10 @@ void main()
     }
 
     // Replace required function
+    patch::hookFunction(System__CourseCache__load, System__CourseCache__load_Replace);
     patch::hookFunction((void (*)())((void*)(((unsigned char*)((void*)System__DvdArchive__decompress)) + 0x28)), dvd_archive_decompress_hook_asm);
-    patch::hookFunction(EGG__Decomp__DecodeSZS, EGG__Decomp__DecodeSZS_Replace);
+    patch::hookFunction((void (*)())((void*)EGG__Decomp__DecodeSZS), dvd_archive_decompress_hook_asm2);
+    patch::hookFunction(dvd_archive_decompress_hook_asm2_end, (void (*)())((void*)(((unsigned char*)((void*)EGG__Decomp__DecodeSZS)) + 4)));
     patch::hookFunction(EGG__Decomp__getExpandSize, EGG__Decomp__getExpandSize_Replace);
 
 }
