@@ -208,6 +208,7 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
     for(unsigned int i = 0;i < src_wu8.header.nodeAndStringTableSize;i++)src_wu8.nodeAndStringTable[i] = src_wu8.nodeAndStringTable[i] ^ basicKey;
     //Algorithm 2 and 3
     unsigned int allNodeCount = firstNode->fileDataLength;
+    unsigned int loadedAutoAddFileCount = 0;
     for(unsigned int i = 1;i < allNodeCount;i++){
         char *fullPath;
         char *dotSlashFullPath;
@@ -228,6 +229,7 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
             Egg__Heap__Free(fullPath, src_wu8.heap);
             continue;
         }
+        loadedAutoAddFileCount++;
         u8_archive_get_file_auto_add(&auto_add, dotSlashFullPath, &origFile);
         // Algorithm 3
         //https://github.com/Wiimm/wiimms-szs-tools/blob/336da838ce43edae40dd708dd465f1f43a2c312d/project/src/lib-szs.c#L1795
@@ -239,6 +241,7 @@ void decode_wu8(unsigned char *src, unsigned int srcSize, void *heap){
         if(freeDotSlashFullPath)Egg__Heap__Free(dotSlashFullPath, heap);
         Egg__Heap__Free(fullPath, src_wu8.heap);
     }
+    if(loadedAutoAddFileCount == 0)summaryKey ^= 0x71;//It should be calculated from ./itembox.brres.
     // Algorithm 4
     for(unsigned int i = 1;i < allNodeCount;i++){
         char *fullPath;
