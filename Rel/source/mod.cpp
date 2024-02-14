@@ -23,7 +23,7 @@ namespace mod {
 void *decodeSzsHeap;
 void *lzmaHeap;
 
-const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc is not exist.\n";
+const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc does not exist.\n";
 
 void System__CourseCache__load_Replace(void *self, unsigned int courseId){
     //disable course cache
@@ -73,7 +73,7 @@ unsigned int DvdArchiveDecompressHook(unsigned char *fileStart, void *heap, unsi
     //replace here.
     //https://github.com/riidefi/mkw/blob/master/source/game/system/DvdArchive.cpp#L222
     decodeSzsHeap = heap;
-    if(!memcmp(fileStart, "Yaz0", 4))return EGG__Decomp__getExpandSize(fileStart);
+    if(!memcmp(fileStart, "Yaz", 3))return EGG__Decomp__getExpandSize(fileStart);
     //Assume that this is wbz or wlz.
     unsigned int result;
     memcpy(&result, fileStart + 0xC, 4);
@@ -84,7 +84,7 @@ unsigned int DvdArchiveDecompressHook(unsigned char *fileStart, void *heap, unsi
 unsigned int dvd_archive_decompress_hook2(unsigned char *src, unsigned char *dest){
     //replace here.
     //https://github.com/riidefi/mkw/blob/40c587abb0bb386532aaf038e290524c86ab4c1f/source/egg/core/eggDecomp.cpp#L35
-    if(!memcmp(src, "Yaz0", 4)){
+    if(!memcmp(src, "Yaz", 3)){
         return 0;
     }
     if(!memcmp(src, "WBZa", 4))decompressBz2(src + 0x10, *((unsigned int*)((void*)(src + 0x8))) - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
@@ -96,7 +96,7 @@ unsigned int dvd_archive_decompress_hook2(unsigned char *src, unsigned char *des
 }
 
 unsigned int EGG__Decomp__getExpandSize_Replace(unsigned char *src){
-    if(!memcmp(src, "Yaz0", 4)){
+    if(!memcmp(src, "Yaz", 3)){
         return *((unsigned int*)((void*)(src + 4)));
     }
     //Assume that this is wbz or wlz.
