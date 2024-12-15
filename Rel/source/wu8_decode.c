@@ -2,7 +2,16 @@
 
 #define U8_MAGIC 0x55AA382D
 
+const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc does not exist.\n";
+
 void *Egg__Heap__Alloc(unsigned int, unsigned int, void*);
+
+void printAutoAddNotExistMessage(void){
+    unsigned int col = 0xE0E0E0FF;
+    unsigned int col2 = 0x003000FF;
+    OSFatal(&col, &col2, AUTO_ADD_NOT_FOUND_MSG);
+    return;
+}
 
 void *my_malloc_from_heap(unsigned int length, void *heap){
     unsigned int requsetLength = length;
@@ -27,7 +36,14 @@ char *addDotSlashIfNotExist(char *srcPath, void *heap){
 void u8_archive_init_auto_add(u8_archive *src, const char *path, void *heap){
     src->heap = heap;
     src->nodeAndStringTable = NULL;
-    if(!DVDOpen(path, &(src->fi)))return;
+    if(!DVDOpen(path, &(src->fi))){
+        printAutoAddNotExistMessage();
+        return;
+    }
+    if(!(src->fi.length)){
+        printAutoAddNotExistMessage();
+        return;
+    }
     void *tmpHeader = my_malloc_from_heap(0x10, heap);
     DVDReadPrio(&(src->fi), tmpHeader, 0x10, 0, 2);
     memcpy(&(src->header), tmpHeader, 0x10);

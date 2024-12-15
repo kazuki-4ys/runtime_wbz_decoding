@@ -23,8 +23,6 @@ namespace mod {
 void *decodeSzsHeap;
 void *lzmaHeap;
 
-const char *AUTO_ADD_NOT_FOUND_MSG = "Error:\n/Race/Course/auto-add.arc does not exist.\n";
-
 void System__CourseCache__load_Replace(void *self, unsigned int courseId){
     //disable course cache
     return;
@@ -85,6 +83,14 @@ unsigned int dvd_archive_decompress_hook2(unsigned char *src, unsigned char *des
     //replace here.
     //https://github.com/riidefi/mkw/blob/40c587abb0bb386532aaf038e290524c86ab4c1f/source/egg/core/eggDecomp.cpp#L35
     if(!memcmp(src, "Yaz", 3)){
+        if(!memcmp(src + 0x10, "\x42\x5a\x68", 3)){
+            decompressBz2(src + 0x10, *((unsigned int*)((void*)(src + 0x8))), dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
+            return *((unsigned int*)((void*)(src + 0x4)));
+        }
+        if(!memcmp(src + 0x10, "\x5d\x00\x00", 3)){
+            decompressLzma(src + 0x10, *((unsigned int*)((void*)(src + 0x8))), dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
+            return *((unsigned int*)((void*)(src + 0x4)));
+        }
         return 0;
     }
     if(!memcmp(src, "WBZa", 4))decompressBz2(src + 0x10, *((unsigned int*)((void*)(src + 0x8))) - 0x10, dest, *((unsigned int*)((void*)(src + 0xC))), decodeSzsHeap);
@@ -105,14 +111,6 @@ unsigned int EGG__Decomp__getExpandSize_Replace(unsigned char *src){
 
 void main()
 {
-    //OSReport("Hello World, from runtime_wbz_decoding rel\n");
-    if(!isFileValid("/Race/Course/auto-add.arc")){
-        unsigned int col = 0xE0E0E0FF;
-        unsigned int col2 = 0x003000FF;
-        OSFatal(&col, &col2, AUTO_ADD_NOT_FOUND_MSG);
-        return;
-    }
-
     // Replace required function
     patch::hookFunction(System__CourseCache__load, System__CourseCache__load_Replace);
     patch::hookFunction((void (*)())((void*)(((unsigned char*)((void*)System__DvdArchive__decompress)) + 0x28)), dvd_archive_decompress_hook_asm);
