@@ -8,9 +8,11 @@ It consists of custom [REL](https://wiki.tockdom.com/wiki/REL) and [Gecko Code](
 
 Decodes [WBZ/WLZ](https://wiki.tockdom.com/wiki/WBZ) to [U8](https://wiki.tockdom.com/wiki/U8) when track data is loaded by game code.
 
-This reduces the capacity of most tracks by 30-40% (when using [WLZ](https://wiki.tockdom.com/wiki/WBZ)).
+Since v1.1, [YLZ/YBZ](https://wiki.tockdom.com/wiki/YLZ) can also be decoded.
 
-However, this feature requires `auto-add.arc` to be dumped by [RevoKart Dumper](https://github.com/kazuki-4ys/RevoKart_Dumper).
+This reduces the capacity of most tracks by 30-40% (when using [WLZ](https://wiki.tockdom.com/wiki/WBZ) or [YLZ](https://wiki.tockdom.com/wiki/YLZ)).
+
+To decode [WBZ/WLZ](https://wiki.tockdom.com/wiki/WBZ), `auto-add.arc` dumped by [RevoKart Dumper](https://github.com/kazuki-4ys/RevoKart_Dumper) is required.
 
 ## Credits
 * [Seeky](https://github.com/SeekyCt) for [Cheese Mod Kart](https://github.com/SeekyCt/cheese-mod-kart).

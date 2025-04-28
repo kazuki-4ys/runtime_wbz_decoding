@@ -85,10 +85,12 @@ unsigned int dvd_archive_decompress_hook2(unsigned char *src, unsigned char *des
     if(!memcmp(src, "Yaz", 3)){
         if(!memcmp(src + 0x10, "\x42\x5a\x68", 3)){
             decompressBz2(src + 0x10, *((unsigned int*)((void*)(src + 0x8))), dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
+            if(!memcmp(dest, "WU8a", 4))decode_wu8(dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
             return *((unsigned int*)((void*)(src + 0x4)));
         }
         if(!memcmp(src + 0x10, "\x5d\x00\x00", 3)){
             decompressLzma(src + 0x10, *((unsigned int*)((void*)(src + 0x8))), dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
+            if(!memcmp(dest, "WU8a", 4))decode_wu8(dest, *((unsigned int*)((void*)(src + 0x4))), decodeSzsHeap);
             return *((unsigned int*)((void*)(src + 0x4)));
         }
         return 0;
