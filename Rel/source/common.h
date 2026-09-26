@@ -15,6 +15,7 @@ void OSFatal(unsigned int *strCol, unsigned int *bgCol, const char *str);
 void OSReport(const char*, ...);
 void memcpy(void*, void*, unsigned int);
 void *memset(void *buf, int ch, unsigned int n);
+void *memmove(void *dest, const void *src, unsigned int n);
 int snprintf(char* s, unsigned int n, const char* format, ...);
 int strlen(const char*);
 int strcmp(const char*, const char*);
